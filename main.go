@@ -48,19 +48,45 @@ type desiredEntry struct {
 
 func main() {
 	log.SetFlags(0)
-	// top-level subcommands
 	if len(os.Args) < 2 {
 		usage()
 		return
 	}
-	cmd := os.Args[1]
-	switch cmd {
+	switch os.Args[1] {
+	case "contacts":
+		contactsMain(os.Args[2:])
+	case "help", "-h", "--help":
+		usage()
+	default:
+		usage()
+	}
+}
+
+func usage() {
+	fmt.Println("Usage: dav <domain> <command> [options]")
+	fmt.Println("Domains:")
+	fmt.Println("  contacts   manage CardDAV contacts (fetch/add/update/delete/move/sync/etc.)")
+	fmt.Println()
+	fmt.Println("Examples:")
+	fmt.Println("  dav contacts fetch")
+	fmt.Println("  dav contacts fetch --un-contacts")
+	fmt.Println("  dav contacts add --name \"Jane Doe\" --emails jane@example.com --phones \"+1 4803957551\"")
+	fmt.Println("  dav contacts delete --name \"Old Lead\" --vcf \"$UN_CONTACTS/psychology/old-lead.vcf\"")
+	fmt.Println("  dav contacts sync --source docs/examples/example-table.md --apply --touch")
+}
+
+func contactsMain(args []string) {
+	if len(args) == 0 {
+		contactsUsage()
+		return
+	}
+	switch args[0] {
 	case "fetch":
 		fetchCmd := flag.NewFlagSet("fetch", flag.ExitOnError)
 		source := fetchCmd.String("source", "", "optional markdown file to rebuild after fetch")
 		touchAll := fetchCmd.Bool("touch-all", false, "update REV on all cards (apply immediately)")
 		unBuckets := fetchCmd.Bool("un-contacts", false, "list UN_CONTACTS buckets instead of server contacts")
-		fetchCmd.Parse(os.Args[2:])
+		fetchCmd.Parse(args[1:])
 		client := newClient()
 		if *unBuckets {
 			printBuckets(getenv("UN_CONTACTS", "/home/pi/data/smbfs/dada/un-contacts"))
@@ -88,7 +114,7 @@ func main() {
 		emails := addCmd.String("emails", "", "comma-separated emails")
 		phones := addCmd.String("phones", "", "comma-separated phones")
 		note := addCmd.String("note", "", "note")
-		addCmd.Parse(os.Args[2:])
+		addCmd.Parse(args[1:])
 		if *name == "" {
 			log.Fatalf("name is required")
 		}
@@ -106,7 +132,7 @@ func main() {
 		emails := upCmd.String("emails", "", "replace emails (comma-separated)")
 		phones := upCmd.String("phones", "", "replace phones (comma-separated)")
 		note := upCmd.String("note", "", "set note (empty to clear)")
-		upCmd.Parse(os.Args[2:])
+		upCmd.Parse(args[1:])
 		if *name == "" {
 			log.Fatalf("name is required")
 		}
@@ -116,18 +142,28 @@ func main() {
 		rmCmd := flag.NewFlagSet("delete", flag.ExitOnError)
 		name := rmCmd.String("name", "", "name to delete (required)")
 		backup := rmCmd.String("vcf", "", "optional backup path for the vcard")
-		rmCmd.Parse(os.Args[2:])
+		rmCmd.Parse(args[1:])
 		if *name == "" {
 			log.Fatalf("name is required")
 		}
 		client := newClient()
 		deleteEntry(client, *name, *backup)
+	case "move":
+		mvCmd := flag.NewFlagSet("move", flag.ExitOnError)
+		name := mvCmd.String("name", "", "name to move (required)")
+		bucket := mvCmd.String("bucket", "", "target bucket under UN_CONTACTS (required)")
+		newName := mvCmd.String("new-name", "", "optional new name before move")
+		mvCmd.Parse(args[1:])
+		if *name == "" || *bucket == "" {
+			log.Fatalf("move: --name and --bucket are required")
+		}
+		moveEntry(newClient(), *name, *bucket, *newName)
 	case "sync":
 		syncCmd := flag.NewFlagSet("sync", flag.ExitOnError)
-		source := syncCmd.String("source", "all-contacts-step-4.md", "markdown table to sync from")
+		source := syncCmd.String("source", "docs/examples/example-table.md", "markdown table to sync from")
 		apply := syncCmd.Bool("apply", false, "apply changes (default dry-run)")
 		touch := syncCmd.Bool("touch", false, "force-update REV on all cards")
-		syncCmd.Parse(os.Args[2:])
+		syncCmd.Parse(args[1:])
 		runSync(*source, *apply, *touch)
 	case "photos":
 		photoCmd := flag.NewFlagSet("photos", flag.ExitOnError)
@@ -135,54 +171,69 @@ func main() {
 		force := photoCmd.Bool("force", false, "replace existing photos")
 		mapPath := photoCmd.String("map", getenv("PHOTO_MAP", "photo-map.json"), "photo map json")
 		gravatar := photoCmd.Bool("gravatar", getenv("ENABLE_GRAVATAR", "0") != "0", "enable gravatar fallback")
-		photoCmd.Parse(os.Args[2:])
+		photoCmd.Parse(args[1:])
 		applyPhotosCmd(*apply, *force, *mapPath, *gravatar)
-	case "move":
-		moveCmd := flag.NewFlagSet("move", flag.ExitOnError)
-		name := moveCmd.String("name", "", "name to move (required)")
-		bucket := moveCmd.String("bucket", "", "target bucket under UN_CONTACTS (required)")
-		newName := moveCmd.String("new-name", "", "optional new name before move")
-		moveCmd.Parse(os.Args[2:])
-		if *name == "" || *bucket == "" {
-			log.Fatalf("move: --name and --bucket are required")
-		}
-		moveEntry(newClient(), *name, *bucket, *newName)
-	case "refresh-uids":
-		refreshCmd := flag.NewFlagSet("refresh-uids", flag.ExitOnError)
-		apply := refreshCmd.Bool("apply", false, "apply changes (default dry-run)")
-		refreshCmd.Parse(os.Args[2:])
-		refreshUIDs(*apply)
 	case "clean-buckets":
 		cleanCmd := flag.NewFlagSet("clean-buckets", flag.ExitOnError)
 		apply := cleanCmd.Bool("apply", false, "apply fixes (default dry-run)")
-		cleanCmd.Parse(os.Args[2:])
+		cleanCmd.Parse(args[1:])
 		cleanBuckets(*apply)
+	case "refresh-uids":
+		refreshCmd := flag.NewFlagSet("refresh-uids", flag.ExitOnError)
+		apply := refreshCmd.Bool("apply", false, "apply changes (default dry-run)")
+		refreshCmd.Parse(args[1:])
+		refreshUIDs(*apply)
+	case "photos-gravatar":
+		log.Println("deprecated; use photos --gravatar")
+	case "touch-all":
+		client := newClient()
+		infos := mustFetch(client)
+		touchAllCards(client, infos)
 	case "fix-names":
 		fixCmd := flag.NewFlagSet("fix-names", flag.ExitOnError)
 		apply := fixCmd.Bool("apply", false, "apply changes (default dry-run)")
-		fixCmd.Parse(os.Args[2:])
+		fixCmd.Parse(args[1:])
 		fixNames(*apply)
 	case "help", "-h", "--help":
-		usage()
+		contactsUsage()
 	default:
-		usage()
+		contactsUsage()
 	}
 }
 
-func usage() {
-	fmt.Println("Usage: dav-helper <command> [options]")
+func contactsUsage() {
+	fmt.Println("Usage: dav contacts <command> [options]")
 	fmt.Println("Commands:")
-	fmt.Println("  fetch    list contacts (fancy table) and optionally rebuild a markdown table")
-	fmt.Println("           --un-contacts shows buckets grouped by folder")
-	fmt.Println("  add      --name NAME [--emails e1,e2] [--phones p1,p2] [--note text]")
-	fmt.Println("  update   --name NAME [--new-name NN] [--emails ...] [--phones ...] [--note text]")
-	fmt.Println("  delete   --name NAME [--vcf /path/to/backup.vcf]")
-	fmt.Println("  sync     --source FILE [--apply] [--touch]  # syncs server to markdown state; touch updates REV to force clients")
-	fmt.Println("  photos   [--apply] [--force] [--map photo-map.json] [--gravatar bool]  # apply photo map/gravatar to all contacts")
-	fmt.Println("  move     --name NAME --bucket psychology|corporate|... [--new-name NN]  # move to bucket under UN_CONTACTS")
-	fmt.Println("  clean-buckets [--apply]  # scan buckets for duplicates/missing phones, normalize phone ordering (no deletions unless requested)")
-	fmt.Println("  refresh-uids [--apply]   # recreate all server contacts with new UIDs/hrefs to force client refresh (default dry-run)")
-	fmt.Println("  fix-names [--apply]      # set structured N to match FN for all server contacts (default dry-run)")
+	fmt.Println("  fetch          list contacts (fancy table) or buckets with --un-contacts; use --touch-all to bump REV")
+	fmt.Println("  add            --name NAME [--emails e1,e2] [--phones p1,p2] [--note text]")
+	fmt.Println("  update         --name NAME [--new-name NN] [--emails ...] [--phones ...] [--note text]")
+	fmt.Println("  delete         --name NAME [--vcf /path/to/backup.vcf]")
+	fmt.Println("  move           --name NAME --bucket psychology|corporate|... [--new-name NN]")
+	fmt.Println("  sync           --source FILE [--apply] [--touch]  # reconcile to markdown table; extras go to UN_CONTACTS/neutral")
+	fmt.Println("  photos         [--apply] [--force] [--map photo-map.json] [--gravatar bool]  # apply photo map/gravatar")
+	fmt.Println("  clean-buckets  [--apply]  # normalize bucket phone ordering/format; warn on missing phones")
+	fmt.Println("  refresh-uids   [--apply]  # recreate all server contacts with new UIDs/hrefs to force client refresh")
+	fmt.Println("  fix-names      [--apply]  # set structured N to match FN for all server contacts")
+	fmt.Println()
+	fmt.Println("Examples:")
+	fmt.Println("  dav contacts fetch --touch-all")
+	fmt.Println("  dav contacts fetch --un-contacts")
+	fmt.Println("  dav contacts add --name \"Jane Doe\" --phones \"+1 4803957551,+91 9876543210\"")
+	fmt.Println("  dav contacts move --name \"Vendor X\" --bucket corporate --new-name \"Vendor X (2019)\"")
+	fmt.Println("  dav contacts delete --name \"Noise Lead\" --vcf \"$UN_CONTACTS/psychology/noise-lead.vcf\"")
+	fmt.Println("  dav contacts photos --apply --gravatar")
+	fmt.Println("  dav contacts sync --source docs/examples/example-table.md --apply --touch")
+}
+
+// touchAllCards bumps REV on all provided cards.
+func touchAllCards(client *radClient, cards []cardData) {
+	ctx := context.Background()
+	for _, cd := range cards {
+		setRevNow(&cd.Card)
+		if err := client.put(ctx, cd.Ref, cd.Card); err != nil {
+			log.Printf("touch %s: %v", cd.Ref.Href, err)
+		}
+	}
 }
 
 // client and HTTP

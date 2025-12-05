@@ -1,6 +1,6 @@
 # Example contact table
 
-Use this format with `bin/dav-helper sync --source docs/examples/example-table.md --apply --touch`.
+Use this format with `bin/dav contacts sync --source docs/examples/example-table.md --apply --touch`.
 
 | Name | Emails | Phones | Note | Comments |
 |---|---|---|---|---|

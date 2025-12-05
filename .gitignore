@@ -2,6 +2,7 @@ __pycache__/
 *.pyc
 .env
 .venv/
+bin/dav
 bin/dav-helper
 contacts.db
 tmp-fetch-test

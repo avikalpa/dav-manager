@@ -13,23 +13,23 @@ Single-binary CLI (Go) to keep a Radicale address book clean, normalized, and ea
    - `RADICALE_BASE_URL` `RADICALE_COLLECTION` `RADICALE_USER` `RADICALE_PASS`
    - `UN_CONTACTS` (e.g. `/home/pi/data/smbfs/dada/un-contacts`)
    - `PHOTO_MAP` (default `photo-map.json`), `ENABLE_GRAVATAR=0|1`
-2) Build: `go build -o bin/dav-helper ./...` (binary is gitignored)
-3) List live contacts: `bin/dav-helper fetch`
-4) Bucket view: `bin/dav-helper fetch --un-contacts`
-5) Force client refresh: `bin/dav-helper fetch --touch-all`
+2) Build: `go build -o bin/dav ./...` (binary is gitignored)
+3) List live contacts: `bin/dav contacts fetch`
+4) Bucket view: `bin/dav contacts fetch --un-contacts`
+5) Force client refresh: `bin/dav contacts fetch --touch-all`
 
 ## Core commands
-- Add: `bin/dav-helper add --name "Jane Doe" --emails jane@example.com --phones "+1 4803957551" --note "Friend"`
-- Update: `bin/dav-helper update --name "Jane Doe" --new-name "Jane D." --phones "+1 4803957551,+91 9876543210"`
-- Delete with backup: `bin/dav-helper delete --name "Noise Lead" --vcf "$UN_CONTACTS/psychology/noise-lead.vcf"`
-- Move to bucket: `bin/dav-helper move --name "Vendor X" --bucket corporate --new-name "Vendor X (2019)"`
-- Sync from markdown: `bin/dav-helper sync --source docs/examples/example-table.md --apply --touch`
+- Add: `bin/dav contacts add --name "Jane Doe" --emails jane@example.com --phones "+1 4803957551" --note "Friend"`
+- Update: `bin/dav contacts update --name "Jane Doe" --new-name "Jane D." --phones "+1 4803957551,+91 9876543210"`
+- Delete with backup: `bin/dav contacts delete --name "Noise Lead" --vcf "$UN_CONTACTS/psychology/noise-lead.vcf"`
+- Move to bucket: `bin/dav contacts move --name "Vendor X" --bucket corporate --new-name "Vendor X (2019)"`
+- Sync from markdown: `bin/dav contacts sync --source docs/examples/example-table.md --apply --touch`
   - Extras go to `UN_CONTACTS/neutral`
   - Phones normalized (non-+91 first), emails lowercased, `N` kept in sync with `FN`
-- Photos: `bin/dav-helper photos --apply --map photo-map.json --gravatar`
-- Bucket hygiene: `bin/dav-helper clean-buckets --apply`
-- Name fix: `bin/dav-helper fix-names --apply` (sets structured `N=FN` everywhere)
-- UID refresh: `bin/dav-helper refresh-uids --apply` (recreate cards with new UIDs/hrefs)
+- Photos: `bin/dav contacts photos --apply --map photo-map.json --gravatar`
+- Bucket hygiene: `bin/dav contacts clean-buckets --apply`
+- Name fix: `bin/dav contacts fix-names --apply` (sets structured `N=FN` everywhere)
+- UID refresh: `bin/dav contacts refresh-uids --apply` (recreate cards with new UIDs/hrefs)
 
 ## Buckets (“un-contacts”)
 - Structured folders under `UN_CONTACTS` (e.g. `psychology/`, `corporate/`, `lost-in-time/`, `neutral/`, `email_only/`).

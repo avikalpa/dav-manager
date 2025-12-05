@@ -1,0 +1,9 @@
+__pycache__/
+*.pyc
+.env
+.venv/
+bin/dav-helper
+contacts.db
+tmp-fetch-test
+*.log
+*.md.backup

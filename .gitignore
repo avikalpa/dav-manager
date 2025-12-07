@@ -8,3 +8,4 @@ contacts.db
 tmp-fetch-test
 *.log
 *.md.backup
+dist/

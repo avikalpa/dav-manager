@@ -31,6 +31,9 @@ Single-binary CLI (Go) to keep a Radicale address book clean, normalized, and ea
 - Name fix: `bin/dav contacts fix-names --apply` (sets structured `N=FN` everywhere)
 - UID refresh: `bin/dav contacts refresh-uids --apply` (recreate cards with new UIDs/hrefs)
 
+## Releases
+- Tagged pushes (`v*`) trigger GitHub Actions to build and attach binaries for Linux/macOS/Windows (amd64/arm64). Grab them from the Releases page or build locally with `go build -o bin/dav ./...`.
+
 ## Buckets (“un-contacts”)
 - Structured folders under `UN_CONTACTS` (e.g. `psychology/`, `corporate/`, `lost-in-time/`, `neutral/`, `email_only/`).
 - Each entry is a VCF file with legible filenames; multi-card VCFs are merged and normalized.

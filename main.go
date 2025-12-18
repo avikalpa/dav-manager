@@ -158,6 +158,16 @@ func contactsMain(args []string) {
 			log.Fatalf("move: --name and --bucket are required")
 		}
 		moveEntry(newClient(), *name, *bucket, *newName)
+	case "restore":
+		rsCmd := flag.NewFlagSet("restore", flag.ExitOnError)
+		name := rsCmd.String("name", "", "name to restore (required)")
+		bucket := rsCmd.String("bucket", "", "bucket under UN_CONTACTS to restore from (required)")
+		keepSource := rsCmd.Bool("keep-source", false, "keep the source VCF in UN_CONTACTS (default deletes it)")
+		rsCmd.Parse(args[1:])
+		if *name == "" || *bucket == "" {
+			log.Fatalf("restore: --name and --bucket are required")
+		}
+		restoreEntry(newClient(), *name, *bucket, *keepSource)
 	case "sync":
 		syncCmd := flag.NewFlagSet("sync", flag.ExitOnError)
 		source := syncCmd.String("source", "docs/examples/example-table.md", "markdown table to sync from")
@@ -209,6 +219,7 @@ func contactsUsage() {
 	fmt.Println("  update         --name NAME [--new-name NN] [--emails ...] [--phones ...] [--note text]")
 	fmt.Println("  delete         --name NAME [--vcf /path/to/backup.vcf]")
 	fmt.Println("  move           --name NAME --bucket psychology|corporate|... [--new-name NN]")
+	fmt.Println("  restore        --name NAME --bucket psychology|corporate|... [--keep-source]")
 	fmt.Println("  sync           --source FILE [--apply] [--touch]  # reconcile to markdown table; extras go to UN_CONTACTS/neutral")
 	fmt.Println("  photos         [--apply] [--force] [--map photo-map.json] [--gravatar bool]  # apply photo map/gravatar")
 	fmt.Println("  clean-buckets  [--apply]  # normalize bucket phone ordering/format; warn on missing phones")
@@ -220,6 +231,7 @@ func contactsUsage() {
 	fmt.Println("  dav contacts fetch --un-contacts")
 	fmt.Println("  dav contacts add --name \"Jane Doe\" --phones \"+1 4803957551,+91 9876543210\"")
 	fmt.Println("  dav contacts move --name \"Vendor X\" --bucket corporate --new-name \"Vendor X (2019)\"")
+	fmt.Println("  dav contacts restore --name \"Vendor X (2019)\" --bucket corporate")
 	fmt.Println("  dav contacts delete --name \"Noise Lead\" --vcf \"$UN_CONTACTS/psychology/noise-lead.vcf\"")
 	fmt.Println("  dav contacts photos --apply --gravatar")
 	fmt.Println("  dav contacts sync --source docs/examples/example-table.md --apply --touch")
@@ -578,6 +590,115 @@ func moveEntry(client *radClient, name string, bucket string, newName string) {
 		log.Fatalf("move delete failed: %v", err)
 	}
 	log.Printf("moved %s to %s", target.Card.Value(vcard.FieldFormattedName), fname)
+}
+
+func restoreEntry(client *radClient, name string, bucket string, keepSource bool) {
+	root := getenv("UN_CONTACTS", "/home/pi/data/smbfs/dada/un-contacts")
+	path, card, err := findBucketCard(root, bucket, name)
+	if err != nil {
+		log.Fatalf("restore: %v", err)
+	}
+
+	// Normalize before upload.
+	fn := strings.TrimSpace(card.Value(vcard.FieldFormattedName))
+	if fn == "" {
+		fn = name
+		card.SetValue(vcard.FieldFormattedName, fn)
+	}
+	card.SetValue(vcard.FieldName, fn)
+	ensureUID(&card)
+
+	emails := dedupeLower(getValues(card, vcard.FieldEmail))
+	clearProps(&card, vcard.FieldEmail)
+	for _, em := range emails {
+		card.Add(vcard.FieldEmail, &vcard.Field{Value: em})
+	}
+
+	phones := normalizeAndOrderPhones(getValues(card, vcard.FieldTelephone))
+	clearProps(&card, vcard.FieldTelephone)
+	for _, p := range phones {
+		card.Add(vcard.FieldTelephone, &vcard.Field{
+			Value:  p,
+			Params: map[string][]string{vcard.ParamType: {"cell"}},
+		})
+	}
+	setRevNow(&card)
+
+	ctx := context.Background()
+	href := fmt.Sprintf("%s%s.vcf", client.collectionURL(), randomID())
+	if err := client.put(ctx, cardRef{Href: href}, card); err != nil {
+		log.Fatalf("restore put failed: %v", err)
+	}
+	if !keepSource {
+		_ = os.Remove(path)
+	}
+	log.Printf("restored %s from %s", fn, path)
+}
+
+func findBucketCard(root string, bucket string, name string) (string, vcard.Card, error) {
+	dir := filepath.Join(root, bucket)
+	key := norm(name)
+	matches := 0
+	var matchPath string
+	var matchCard vcard.Card
+
+	err := filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return nil
+		}
+		if info.IsDir() {
+			return nil
+		}
+		if strings.ToLower(filepath.Ext(path)) != ".vcf" {
+			return nil
+		}
+		data, err := os.ReadFile(path)
+		if err != nil {
+			return nil
+		}
+		dec := vcard.NewDecoder(strings.NewReader(string(data)))
+		for {
+			card, err := dec.Decode()
+			if err == io.EOF {
+				break
+			}
+			if err != nil {
+				break
+			}
+			fn := strings.TrimSpace(card.Value(vcard.FieldFormattedName))
+			if norm(fn) != key {
+				continue
+			}
+			matches++
+			matchPath = path
+			matchCard = card
+		}
+		return nil
+	})
+	if err != nil {
+		return "", vcard.Card{}, err
+	}
+	if matches == 0 {
+		return "", vcard.Card{}, fmt.Errorf("%s not found in %s", name, dir)
+	}
+	if matches > 1 {
+		return "", vcard.Card{}, fmt.Errorf("%s matched %d vcards in %s; please dedupe first", name, matches, dir)
+	}
+	return matchPath, matchCard, nil
+}
+
+func dedupeLower(vals []string) []string {
+	seen := map[string]bool{}
+	out := []string{}
+	for _, v := range vals {
+		v = strings.ToLower(strings.TrimSpace(v))
+		if v == "" || seen[v] {
+			continue
+		}
+		seen[v] = true
+		out = append(out, v)
+	}
+	return out
 }
 
 // Sync workflow

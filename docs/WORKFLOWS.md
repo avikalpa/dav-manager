@@ -24,6 +24,8 @@ These workflows show how to reclaim a messy address book with repeatable, script
 - List buckets: `bin/dav contacts fetch --un-contacts`
 - Move a server contact into a bucket (renaming optional):
   - `bin/dav contacts move --name "Old Vendor" --bucket corporate --new-name "Old Vendor (2019)"`
+- Restore a bucketed contact back into the server:
+  - `bin/dav contacts restore --name "Old Vendor (2019)" --bucket corporate`
 - Clean bucket numbers (ordering, E.164-ish): `bin/dav contacts clean-buckets --apply`
 - Keep names legible: filenames are normalized automatically; edit the VCF `FN` if you want a different display.
 

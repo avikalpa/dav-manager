@@ -23,6 +23,7 @@ Single-binary CLI (Go) to keep a Radicale address book clean, normalized, and ea
 - Update: `bin/dav contacts update --name "Jane Doe" --new-name "Jane D." --phones "+1 4803957551,+91 9876543210"`
 - Delete with backup: `bin/dav contacts delete --name "Noise Lead" --vcf "$UN_CONTACTS/psychology/noise-lead.vcf"`
 - Move to bucket: `bin/dav contacts move --name "Vendor X" --bucket corporate --new-name "Vendor X (2019)"`
+- Restore from bucket: `bin/dav contacts restore --name "Vendor X (2019)" --bucket corporate`
 - Sync from markdown: `bin/dav contacts sync --source docs/examples/example-table.md --apply --touch`
   - Extras go to `UN_CONTACTS/neutral`
   - Phones normalized (non-+91 first), emails lowercased, `N` kept in sync with `FN`

@@ -17,3 +17,7 @@ Coordinate small agents/scripts that maintain and polish the Radicale address bo
 - Never persist secrets in the repo; read credentials from env or config outside git.
 - Work in branches and keep change logs for every sync/cleanup run.
 - Run idempotent scripts; make dry-run mode the default.
+
+## Releases (GitHub Actions)
+- Push a semver tag (`vX.Y.Z`) to publish a GitHub Release with attached binaries for Linux/macOS/Windows (amd64/arm64).
+- The workflow is `.github/workflows/release.yml`; it auto-generates release notes and uploads the built artifacts.
